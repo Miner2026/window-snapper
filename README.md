@@ -42,7 +42,7 @@ A GNOME Shell extension that adds **12 snap zones** to your Ubuntu desktop — d
 | Cursor position | Result |
 |---|---|
 | Left third | Top-left quarter (50% × 50%) |
-| Center third | Top half (full width, 50% height) |
+| Center third | Center column (⅓ width, full height) |
 | Right third | Top-right quarter (50% × 50%) |
 
 ### Bottom edge — mirror of top:
@@ -109,9 +109,7 @@ To fill the screen with 3 equal columns:
 
 1. Drag **window A** → left edge, **top third** → snaps to left ⅓
 2. Drag **window B** → right edge, **top third** → snaps to right ⅓
-3. Drag **window C** → left edge, **bottom third** → snaps to left ⅔, then manually resize from the right to fill the center
-
-> **Tip:** A cleaner approach for the center window — snap it to left ⅔, then snap another to right ⅓. The center gap fills naturally if all three are sized to ⅓.
+3. Drag **window C** → top edge, **center third** → snaps to center ⅓
 
 ---
 

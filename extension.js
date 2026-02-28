@@ -207,7 +207,7 @@ export default class WindowSnapperExtension extends Extension {
             case 'right-two-thirds': return { x: x + Math.round(w / 3), y, w: Math.round(w * 2 / 3), h };
             // Top edge
             case 'top-left':         return { x, y, w: hw, h: hh };
-            case 'top-center':       return { x, y, w, h: hh };
+            case 'top-center':       return { x: x + Math.round(w / 3), y, w: Math.round(w / 3), h };
             case 'top-right':        return { x: x + hw, y, w: hw, h: hh };
             // Bottom edge
             case 'bottom-left':      return { x, y: y + hh, w: hw, h: hh };
@@ -279,7 +279,7 @@ export default class WindowSnapperExtension extends Extension {
                 panelY: work.y,
                 radius: '0 0 10px 10px',
                 color:  COL_TOP,
-                labels: ['↖', '▲', '↗'],
+                labels: ['↖', '⅓', '↗'],
             },
             {
                 edge:   'bottom',

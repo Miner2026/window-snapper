@@ -200,7 +200,7 @@ class WindowSnapperExtension {
             case 'right-half':       return { x: x + hw, y, w: hw, h };
             case 'right-two-thirds': return { x: x + Math.round(w / 3), y, w: Math.round(w * 2 / 3), h };
             case 'top-left':         return { x, y, w: hw, h: hh };
-            case 'top-center':       return { x, y, w, h: hh };
+            case 'top-center':       return { x: x + Math.round(w / 3), y, w: Math.round(w / 3), h };
             case 'top-right':        return { x: x + hw, y, w: hw, h: hh };
             case 'bottom-left':      return { x, y: y + hh, w: hw, h: hh };
             case 'bottom-center':    return { x, y: y + hh, w, h: hh };
@@ -270,7 +270,7 @@ class WindowSnapperExtension {
                 panelY:  work.y,
                 radius: '0 0 10px 10px',
                 color:   COL_TOP,
-                labels: ['↖', '▲', '↗'],
+                labels: ['↖', '⅓', '↗'],
             },
             {
                 panelY:  work.y + work.height - panelH,
