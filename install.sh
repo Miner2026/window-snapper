@@ -29,7 +29,10 @@ mkdir -p "$EXT_DIR"
 if [ "$GNOME_VERSION" -ge 45 ]; then
     echo "Using ESM extension format (GNOME 45+)"
     cp "$SCRIPT_DIR/extension.js" "$EXT_DIR/extension.js"
-    SHELL_VERSIONS='"45", "46", "47"'
+    # Declare compatibility from 45 through the current detected version.
+    versions=()
+    for v in $(seq 45 "$GNOME_VERSION"); do versions+=("\"$v\""); done
+    SHELL_VERSIONS=$(IFS=,; echo "${versions[*]}")
 else
     echo "Using legacy extension format (GNOME 42–44)"
     cp "$SCRIPT_DIR/extension-legacy.js" "$EXT_DIR/extension.js"
@@ -86,9 +89,19 @@ echo "    Cursor in top third    → snap to RIGHT ⅓  of screen"
 echo "    Cursor in middle third → snap to RIGHT ½  of screen"
 echo "    Cursor in bottom third → snap to RIGHT ⅔  of screen"
 echo ""
-echo "  Drag any window to the very TOP edge → maximize"
+echo "  Drag any window to the TOP edge:"
+echo "    Left third   → top-left quarter"
+echo "    Center third → center column (⅓ width, full height)"
+echo "    Right third  → top-right quarter"
 echo ""
-echo "  While dragging, coloured indicator panels appear on both edges."
+echo "  Drag any window to the BOTTOM edge:"
+echo "    Left third   → bottom-left quarter"
+echo "    Center third → bottom half (full width)"
+echo "    Right third  → bottom-right quarter"
+echo ""
+echo "  Hold SHIFT during the drag for a 2×3 grid (panels turn gold)."
+echo ""
+echo "  While dragging, coloured indicator panels appear on all four edges."
 echo "  A blue preview shows exactly where the window will land."
 echo ""
 echo "=== To uninstall ==="

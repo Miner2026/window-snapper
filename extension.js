@@ -12,18 +12,23 @@
 //     Middle third → right ½
 //     Bottom third → right ⅔
 //
-//   TOP edge  (horizontal position controls which quarter/half):
+//   TOP edge  (horizontal position controls width/placement):
 //     Left third   → top-left quarter
-//     Center third → top half  (full width)
+//     Center third → center column (⅓ width, full height)
 //     Right third  → top-right quarter
 //
-//   BOTTOM edge  (same logic):
+//   BOTTOM edge:
 //     Left third   → bottom-left quarter
 //     Center third → bottom half  (full width)
 //     Right third  → bottom-right quarter
 //
 // Coloured indicator panels appear on all four edges during any window drag.
 // A blue preview overlay shows exactly where the window will land.
+//
+// Hold SHIFT while dragging to switch to 2×3 GRID MODE:
+//   TOP edge  → row 1 of the grid (cells 1, 2, 3 — each ⅓ wide, ½ tall)
+//   BOTTOM edge → row 2 of the grid (cells 4, 5, 6 — each ⅓ wide, ½ tall)
+// Panels turn gold while Shift is held.
 
 import Meta from 'gi://Meta';
 import St from 'gi://St';
@@ -41,6 +46,7 @@ const COL_HALF        = 'rgba(255, 112,  67, 0.85)';   // orange
 const COL_TWO_THIRDS  = 'rgba(102, 187, 106, 0.85)';   // green
 const COL_TOP         = 'rgba(171,  71, 188, 0.85)';   // purple
 const COL_BOTTOM      = 'rgba(  0, 188, 212, 0.85)';   // teal
+const COL_GRID        = 'rgba(255, 215,   0, 0.85)';   // gold  (2×3 grid mode)
 const COL_PREVIEW_BG  = 'rgba( 74, 144, 255, 0.18)';
 const COL_PREVIEW_BD  = 'rgba( 74, 144, 255, 0.90)';
 
@@ -50,7 +56,10 @@ export default class WindowSnapperExtension extends Extension {
         this._previewActors   = [];
         this._activeZoneId    = null;
         this._pollTimer       = null;
+        this._snapTimer       = null;
         this._draggingWindow  = null;
+
+        this._shiftMode = false;
 
         this._grabBeginId = global.display.connect(
             'grab-op-begin', this._onGrabBegin.bind(this));
@@ -62,6 +71,10 @@ export default class WindowSnapperExtension extends Extension {
         if (this._grabBeginId) { global.display.disconnect(this._grabBeginId); this._grabBeginId = null; }
         if (this._grabEndId)   { global.display.disconnect(this._grabEndId);   this._grabEndId   = null; }
         this._stopPolling();
+        if (this._snapTimer !== null) {
+            GLib.Source.remove(this._snapTimer);
+            this._snapTimer = null;
+        }
         this._clearAll();
     }
 
@@ -84,10 +97,12 @@ export default class WindowSnapperExtension extends Extension {
         this._clearAll();
         this._activeZoneId   = null;
         this._draggingWindow = null;
+        this._shiftMode      = false;
 
         if (zoneId && win) {
             // Short delay so Mutter finishes its own drag handling first
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+            this._snapTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+                this._snapTimer = null;
                 this._applySnap(win, zoneId);
                 return GLib.SOURCE_REMOVE;
             });
@@ -111,8 +126,19 @@ export default class WindowSnapperExtension extends Extension {
     }
 
     _pollCursor() {
-        const [cx, cy] = global.get_pointer();
-        const zoneId   = this._detectZone(cx, cy);
+        const [cx, cy, mask] = global.get_pointer();
+        const shiftHeld = !!(mask & 1); // Clutter.ModifierType.SHIFT_MASK
+
+        if (shiftHeld !== this._shiftMode) {
+            this._shiftMode = shiftHeld;
+            // Rebuild panels only; let the zone re-detect step below decide
+            // whether the preview needs to change.
+            this._clearPanels();
+            this._showEdgePanels(shiftHeld);
+            this._activeZoneId = null;
+        }
+
+        const zoneId = this._detectZone(cx, cy, shiftHeld);
 
         if (zoneId !== this._activeZoneId) {
             this._activeZoneId = zoneId;
@@ -133,7 +159,7 @@ export default class WindowSnapperExtension extends Extension {
         return { monitor: Main.layoutManager.primaryMonitor, index: Main.layoutManager.primaryIndex };
     }
 
-    _detectZone(cx, cy) {
+    _detectZone(cx, cy, shiftMode = false) {
         const { monitor, index } = this._getMonitorForCursor(cx, cy);
         const work = Main.layoutManager.getWorkAreaForMonitor(index);
 
@@ -176,12 +202,22 @@ export default class WindowSnapperExtension extends Extension {
 
             case 'top':
                 if (xFrac < 0 || xFrac > 1) return null;
+                if (shiftMode) {
+                    if (xFrac < 1 / 3) return 'grid-top-left';
+                    if (xFrac < 2 / 3) return 'grid-top-mid';
+                    return 'grid-top-right';
+                }
                 if (xFrac < 1 / 3) return 'top-left';
                 if (xFrac < 2 / 3) return 'top-center';
                 return 'top-right';
 
             case 'bottom':
                 if (xFrac < 0 || xFrac > 1) return null;
+                if (shiftMode) {
+                    if (xFrac < 1 / 3) return 'grid-bot-left';
+                    if (xFrac < 2 / 3) return 'grid-bot-mid';
+                    return 'grid-bot-right';
+                }
                 if (xFrac < 1 / 3) return 'bottom-left';
                 if (xFrac < 2 / 3) return 'bottom-center';
                 return 'bottom-right';
@@ -213,18 +249,27 @@ export default class WindowSnapperExtension extends Extension {
             case 'bottom-left':      return { x, y: y + hh, w: hw, h: hh };
             case 'bottom-center':    return { x, y: y + hh, w, h: hh };
             case 'bottom-right':     return { x: x + hw, y: y + hh, w: hw, h: hh };
+            // 2×3 grid (Shift held) — right column and bottom row absorb any
+            // pixel remainder so the grid exactly fills the work area.
+            case 'grid-top-left':    { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x,           y,         w: cw,           h: ch }; }
+            case 'grid-top-mid':     { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x: x + cw,   y,         w: cw,           h: ch }; }
+            case 'grid-top-right':   { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x: x + 2*cw, y,         w: w - 2*cw,     h: ch }; }
+            case 'grid-bot-left':    { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x,           y: y + ch, w: cw,           h: h - ch }; }
+            case 'grid-bot-mid':     { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x: x + cw,   y: y + ch, w: cw,           h: h - ch }; }
+            case 'grid-bot-right':   { const cw = Math.floor(w / 3), ch = Math.floor(h / 2); return { x: x + 2*cw, y: y + ch, w: w - 2*cw,     h: h - ch }; }
             default:                 return null;
         }
     }
 
     // ─── Edge panel indicators ────────────────────────────────────────────
 
-    _showEdgePanels() {
-        const monitor = Main.layoutManager.primaryMonitor;
-        const work    = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
-
-        this._buildLeftRightPanels(monitor, work);
-        this._buildTopBottomPanels(work);
+    _showEdgePanels(gridMode = false) {
+        for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
+            const monitor = Main.layoutManager.monitors[i];
+            const work    = Main.layoutManager.getWorkAreaForMonitor(i);
+            this._buildLeftRightPanels(monitor, work);
+            this._buildTopBottomPanels(work, gridMode);
+        }
     }
 
     _buildLeftRightPanels(monitor, work) {
@@ -269,26 +314,39 @@ export default class WindowSnapperExtension extends Extension {
         }
     }
 
-    _buildTopBottomPanels(work) {
+    _buildTopBottomPanels(work, gridMode = false) {
         const panelH = 44;
         const thirdW = Math.floor(work.width / 3);
 
-        const rows = [
-            {
-                edge:   'top',
-                panelY: work.y,
-                radius: '0 0 10px 10px',
-                color:  COL_TOP,
-                labels: ['↖', '⅓', '↗'],
-            },
-            {
-                edge:   'bottom',
-                panelY: work.y + work.height - panelH,
-                radius: '10px 10px 0 0',
-                color:  COL_BOTTOM,
-                labels: ['↙', '▼', '↘'],
-            },
-        ];
+        const rows = gridMode
+            ? [
+                {
+                    panelY:  work.y,
+                    radius:  '0 0 10px 10px',
+                    color:   COL_GRID,
+                    labels:  ['1', '2', '3'],
+                },
+                {
+                    panelY:  work.y + work.height - panelH,
+                    radius:  '10px 10px 0 0',
+                    color:   COL_GRID,
+                    labels:  ['4', '5', '6'],
+                },
+              ]
+            : [
+                {
+                    panelY:  work.y,
+                    radius:  '0 0 10px 10px',
+                    color:   COL_TOP,
+                    labels:  ['↖', '⅓', '↗'],
+                },
+                {
+                    panelY:  work.y + work.height - panelH,
+                    radius:  '10px 10px 0 0',
+                    color:   COL_BOTTOM,
+                    labels:  ['↙', '▼', '↘'],
+                },
+              ];
 
         for (const row of rows) {
             for (let i = 0; i < 3; i++) {
@@ -347,9 +405,13 @@ export default class WindowSnapperExtension extends Extension {
         this._previewActors = [];
     }
 
-    _clearAll() {
+    _clearPanels() {
         for (const a of this._edgePanelActors) a.destroy();
         this._edgePanelActors = [];
+    }
+
+    _clearAll() {
+        this._clearPanels();
         this._clearPreview();
     }
 
@@ -362,9 +424,19 @@ export default class WindowSnapperExtension extends Extension {
             window.unmaximize(Meta.MaximizeFlags.BOTH);
 
         const [cx, cy] = global.get_pointer();
+        const { monitor, index } = this._getMonitorForCursor(cx, cy);
+        const work = Main.layoutManager.getWorkAreaForMonitor(index);
         const rect = this._getZoneRect(zoneId, cx, cy);
         if (!rect) return;
 
-        window.move_resize_frame(false, rect.x, rect.y, rect.w, rect.h);
+        // Top/left: don't go under the panel or dock (work area origin)
+        // Bottom/right: clamp to physical screen edge (monitor bounds), not work area,
+        //   because getWorkAreaForMonitor may report a height that includes the panel area.
+        const rx = Math.max(rect.x, work.x);
+        const ry = Math.max(rect.y, work.y);
+        const rw = Math.min(rect.w, monitor.x + monitor.width  - rx);
+        const rh = Math.min(rect.h, monitor.y + monitor.height - ry);
+
+        window.move_resize_frame(false, rx, ry, rw, rh);
     }
 }

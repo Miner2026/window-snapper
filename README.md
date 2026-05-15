@@ -8,7 +8,7 @@ A GNOME Shell extension that adds **12 snap zones** to your Ubuntu desktop — d
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  [↖ top-left ¼]    [▲ top ½ — full width]    [↗ top-right ¼]│  ← TOP edge
+│  [↖ top-left ¼]    [▲ center column ⅓ ]    [↗ top-right ¼] │  ← TOP edge
 ├──┬───────────────────────────────────────────────────────┬───┤
 │⅓ │                                                       │ ⅓ │  ← cursor top third
 │  │                                                       │   │
@@ -51,6 +51,22 @@ A GNOME Shell extension that adds **12 snap zones** to your Ubuntu desktop — d
 | Left third | Bottom-left quarter |
 | Center third | Bottom half (full width) |
 | Right third | Bottom-right quarter |
+
+### Hold Shift — 2×3 grid mode
+
+Hold **Shift** during the drag to switch to a 6-cell grid. The edge panels
+turn **gold** to indicate grid mode is active.
+
+| Edge | Cursor position | Result |
+|---|---|---|
+| Top | Left third   | Cell 1 — top-left ⅓×½ |
+| Top | Center third | Cell 2 — top-center ⅓×½ |
+| Top | Right third  | Cell 3 — top-right ⅓×½ |
+| Bottom | Left third   | Cell 4 — bottom-left ⅓×½ |
+| Bottom | Center third | Cell 5 — bottom-center ⅓×½ |
+| Bottom | Right third  | Cell 6 — bottom-right ⅓×½ |
+
+Release Shift at any time to return to normal mode.
 
 ---
 
