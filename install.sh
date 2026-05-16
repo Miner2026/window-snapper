@@ -18,38 +18,47 @@ fi
 GNOME_VERSION=$(gnome-shell --version 2>/dev/null | grep -oP '\d+' | head -1 || echo "0")
 echo "Detected GNOME Shell version: $GNOME_VERSION"
 
-if [ "$GNOME_VERSION" -lt 42 ]; then
-    echo "Error: GNOME Shell $GNOME_VERSION is not supported (need 42 or newer)."
+if [ "$GNOME_VERSION" -lt 45 ]; then
+    echo "Error: GNOME Shell $GNOME_VERSION is not supported (need 45 or newer)."
     exit 1
 fi
 
 # ── Install extension files ────────────────────────────────────────────────
 mkdir -p "$EXT_DIR"
 
-if [ "$GNOME_VERSION" -ge 45 ]; then
-    echo "Using ESM extension format (GNOME 45+)"
-    cp "$SCRIPT_DIR/extension.js" "$EXT_DIR/extension.js"
-    # Declare compatibility from 45 through the current detected version.
-    versions=()
-    for v in $(seq 45 "$GNOME_VERSION"); do versions+=("\"$v\""); done
-    SHELL_VERSIONS=$(IFS=,; echo "${versions[*]}")
-else
-    echo "Using legacy extension format (GNOME 42–44)"
-    cp "$SCRIPT_DIR/extension-legacy.js" "$EXT_DIR/extension.js"
-    SHELL_VERSIONS='"42", "43", "44"'
+cp "$SCRIPT_DIR/extension.js" "$EXT_DIR/extension.js"
+cp "$SCRIPT_DIR/prefs.js"     "$EXT_DIR/prefs.js"
+cp "$SCRIPT_DIR/metadata.json" "$EXT_DIR/metadata.json"
+
+# ── Compile GSettings schema ───────────────────────────────────────────────
+if [ -d "$SCRIPT_DIR/schemas" ]; then
+    mkdir -p "$EXT_DIR/schemas"
+    cp "$SCRIPT_DIR/schemas/"*.gschema.xml "$EXT_DIR/schemas/"
+    if command -v glib-compile-schemas &>/dev/null; then
+        glib-compile-schemas "$EXT_DIR/schemas/"
+    else
+        echo "Warning: glib-compile-schemas not found; preferences UI will fail."
+    fi
 fi
 
-# ── Write metadata.json ────────────────────────────────────────────────────
-cat > "$EXT_DIR/metadata.json" << EOF
-{
-    "name": "Window Snapper",
-    "description": "Snap windows to thirds, halves, and two-thirds by dragging to screen edges",
-    "uuid": "$EXT_UUID",
-    "version": 1,
-    "shell-version": [$SHELL_VERSIONS],
-    "url": ""
-}
-EOF
+# Patch shell-version to declare compatibility from 45 through the detected
+# GNOME version. jq is preferred; fall back to a regex rewrite if absent.
+versions_json=$(seq 45 "$GNOME_VERSION" | awk 'BEGIN{ORS=""} {printf "%s\"%s\"", (NR>1?",":""), $0}')
+if command -v jq &>/dev/null; then
+    tmp=$(mktemp)
+    jq --argjson v "[$versions_json]" '."shell-version" = $v' \
+        "$EXT_DIR/metadata.json" > "$tmp" && mv "$tmp" "$EXT_DIR/metadata.json"
+else
+    # Last-resort: rewrite the shell-version line. Brittle but jq-free.
+    python3 -c "
+import json, sys
+p = sys.argv[1]
+versions = sys.argv[2].split(',')
+with open(p) as f: m = json.load(f)
+m['shell-version'] = [v.strip().strip('\"') for v in versions]
+with open(p,'w') as f: json.dump(m, f, indent=4); f.write('\n')
+" "$EXT_DIR/metadata.json" "$versions_json"
+fi
 
 echo "Extension files installed to: $EXT_DIR"
 echo ""

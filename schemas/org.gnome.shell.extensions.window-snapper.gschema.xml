@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="window-snapper">
+    <schema id="org.gnome.shell.extensions.window-snapper"
+            path="/org/gnome/shell/extensions/window-snapper/">
+        <key name="edge-width" type="i">
+            <default>60</default>
+            <range min="10" max="300"/>
+            <summary>Left/right edge sensitivity in pixels</summary>
+            <description>
+                Distance in pixels from the left or right monitor edge that
+                activates a snap zone while dragging a window.
+            </description>
+        </key>
+        <key name="top-bot-height" type="i">
+            <default>30</default>
+            <range min="5" max="200"/>
+            <summary>Top/bottom edge sensitivity in pixels</summary>
+            <description>
+                Distance in pixels from the top or bottom work-area edge that
+                activates a snap zone while dragging a window.
+            </description>
+        </key>
+        <key name="snap-delay-ms" type="i">
+            <default>50</default>
+            <range min="0" max="500"/>
+            <summary>Delay before snap (ms)</summary>
+            <description>
+                Milliseconds to wait after releasing the drag before resizing
+                the window. A short delay lets Mutter finish its own drag
+                handling. Lower for snappier feel, raise if windows occasionally
+                snap to the wrong position.
+            </description>
+        </key>
+        <key name="enable-grid-mode" type="b">
+            <default>true</default>
+            <summary>Enable 2×3 grid mode with Shift</summary>
+            <description>
+                When enabled, holding Shift during a drag switches the top and
+                bottom panels into a 6-cell grid. Disable if Shift+drag
+                conflicts with another action.
+            </description>
+        </key>
+    </schema>
+</schemalist>

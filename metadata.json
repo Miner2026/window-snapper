@@ -1,0 +1,9 @@
+{
+    "name": "Window Snapper",
+    "description": "Snap windows to thirds, halves, and two-thirds by dragging to screen edges",
+    "uuid": "window-snapper@local",
+    "version": 1,
+    "shell-version": ["45", "46", "47", "48"],
+    "settings-schema": "org.gnome.shell.extensions.window-snapper",
+    "url": ""
+}

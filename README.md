@@ -45,12 +45,17 @@ A GNOME Shell extension that adds **12 snap zones** to your Ubuntu desktop — d
 | Center third | Center column (⅓ width, full height) |
 | Right third | Top-right quarter (50% × 50%) |
 
-### Bottom edge — mirror of top:
+### Bottom edge:
 | Cursor position | Result |
 |---|---|
 | Left third | Bottom-left quarter |
 | Center third | Bottom half (full width) |
 | Right third | Bottom-right quarter |
+
+> **Note — intentional asymmetry:** top-center is a ⅓-wide *center column*
+> (full height), while bottom-center is a *bottom half* (full width). The two
+> behaviours complement each other rather than mirroring, giving access to both
+> a centered narrow column and a wide horizontal pane without using a modifier.
 
 ### Hold Shift — 2×3 grid mode
 
@@ -73,10 +78,10 @@ Release Shift at any time to return to normal mode.
 ## Requirements
 
 - **Ubuntu** (or any distro running GNOME Shell)
-- **GNOME Shell 42 or newer**
-  - Ubuntu 22.04 → GNOME 42
+- **GNOME Shell 45 or newer** (ESM extension format)
   - Ubuntu 23.10 → GNOME 45
   - Ubuntu 24.04 → GNOME 46
+  - Ubuntu 25.04 → GNOME 48
 
 Check your version:
 ```bash
@@ -129,6 +134,27 @@ To fill the screen with 3 equal columns:
 
 ---
 
+## Preferences
+
+Open the preferences dialog with:
+
+```bash
+gnome-extensions prefs window-snapper@local
+```
+
+Configurable knobs:
+
+| Setting | Default | Description |
+|---|---|---|
+| Left/right edge width | 60 px | How close to a side edge a drag must be before a zone activates |
+| Top/bottom edge height | 30 px | How close to the top/bottom edge a drag must be before a zone activates |
+| Snap delay after drop | 50 ms | Pause between releasing the mouse and resizing the window |
+| Enable 2×3 grid mode with Shift | on | Turn off if Shift+drag conflicts with another action |
+
+Changes apply immediately to the next drag — no restart required.
+
+---
+
 ## Uninstall
 
 ```bash
@@ -150,9 +176,6 @@ Then restart GNOME Shell (see above).
 
 **Snap zones not showing up during drag**
 > Verify the extension is enabled: `gnome-extensions list --enabled | grep window-snapper`
-
-**Wrong GNOME version picked**
-> Run `gnome-shell --version` and check the output. If it says 45 or higher, `extension.js` is used. If 42–44, `extension-legacy.js` is used.
 
 **Re-run install after a GNOME update**
 > Major GNOME updates may require reinstalling: `bash ~/window-snapper/install.sh`
