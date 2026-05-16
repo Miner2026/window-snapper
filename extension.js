@@ -30,15 +30,12 @@
 //   BOTTOM edge → row 2 of the grid (cells 4, 5, 6 — each ⅓ wide, ½ tall)
 // Panels turn gold while Shift is held.
 
+import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
-
-const EDGE_WIDTH       = 60;  // px from left/right screen edges
-const TOP_BOT_HEIGHT   = 30;  // px from top/bottom work-area edges
-const POLL_INTERVAL_MS = 50;
 
 // Panel colours
 const COL_THIRD       = 'rgba( 74, 144, 255, 0.85)';   // blue
@@ -61,6 +58,8 @@ export default class WindowSnapperExtension extends Extension {
 
         this._shiftMode = false;
 
+        this._settings = this.getSettings();
+
         this._grabBeginId = global.display.connect(
             'grab-op-begin', this._onGrabBegin.bind(this));
         this._grabEndId = global.display.connect(
@@ -76,6 +75,7 @@ export default class WindowSnapperExtension extends Extension {
             this._snapTimer = null;
         }
         this._clearAll();
+        this._settings = null;
     }
 
     // ─── Drag events ──────────────────────────────────────────────────────
@@ -100,8 +100,9 @@ export default class WindowSnapperExtension extends Extension {
         this._shiftMode      = false;
 
         if (zoneId && win) {
-            // Short delay so Mutter finishes its own drag handling first
-            this._snapTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+            // Short delay so Mutter finishes its own drag handling first.
+            const delay = this._settings.get_int('snap-delay-ms');
+            this._snapTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
                 this._snapTimer = null;
                 this._applySnap(win, zoneId);
                 return GLib.SOURCE_REMOVE;
@@ -109,10 +110,18 @@ export default class WindowSnapperExtension extends Extension {
         }
     }
 
-    // ─── Cursor polling ───────────────────────────────────────────────────
+    // ─── Cursor + modifier polling ────────────────────────────────────────
+    //
+    // During a Mutter window-move grab (Meta.GrabOp.MOVING), pointer motion
+    // is consumed by the compositor's grab handler and does NOT propagate
+    // through global.stage's captured-event chain — so an event-driven
+    // listener never fires while the window is being dragged. We poll
+    // global.get_pointer() instead, which queries the current cursor
+    // position and modifier mask regardless of grab state.
 
     _startPolling() {
-        this._pollTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, POLL_INTERVAL_MS, () => {
+        const interval = 50;
+        this._pollTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, interval, () => {
             this._pollCursor();
             return GLib.SOURCE_CONTINUE;
         });
@@ -127,8 +136,12 @@ export default class WindowSnapperExtension extends Extension {
 
     _pollCursor() {
         const [cx, cy, mask] = global.get_pointer();
-        const shiftHeld = !!(mask & 1); // Clutter.ModifierType.SHIFT_MASK
+        const gridOn    = this._settings.get_boolean('enable-grid-mode');
+        const shiftHeld = gridOn && !!(mask & Clutter.ModifierType.SHIFT_MASK);
+        this._updateZone(cx, cy, shiftHeld);
+    }
 
+    _updateZone(cx, cy, shiftHeld) {
         if (shiftHeld !== this._shiftMode) {
             this._shiftMode = shiftHeld;
             // Rebuild panels only; let the zone re-detect step below decide
@@ -163,15 +176,18 @@ export default class WindowSnapperExtension extends Extension {
         const { monitor, index } = this._getMonitorForCursor(cx, cy);
         const work = Main.layoutManager.getWorkAreaForMonitor(index);
 
+        const edgeWidth    = this._settings.get_int('edge-width');
+        const topBotHeight = this._settings.get_int('top-bot-height');
+
         const distLeft   = cx - monitor.x;
         const distRight  = (monitor.x + monitor.width)  - cx;
         const distTop    = cy - work.y;
         const distBottom = (work.y + work.height) - cy;
 
-        const inLeft   = distLeft   < EDGE_WIDTH;
-        const inRight  = distRight  < EDGE_WIDTH;
-        const inTop    = distTop    >= 0 && distTop    < TOP_BOT_HEIGHT;
-        const inBottom = distBottom >= 0 && distBottom < TOP_BOT_HEIGHT;
+        const inLeft   = distLeft   < edgeWidth;
+        const inRight  = distRight  < edgeWidth;
+        const inTop    = distTop    >= 0 && distTop    < topBotHeight;
+        const inBottom = distBottom >= 0 && distBottom < topBotHeight;
 
         if (!inLeft && !inRight && !inTop && !inBottom) return null;
 
