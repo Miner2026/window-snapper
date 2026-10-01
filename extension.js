@@ -436,8 +436,15 @@ export default class WindowSnapperExtension extends Extension {
     _applySnap(window, zoneId) {
         if (!window || !window.get_compositor_private()) return;
 
-        if (window.get_maximized())
-            window.unmaximize(Meta.MaximizeFlags.BOTH);
+        // GNOME 49 replaced get_maximized()/unmaximize(flags) with
+        // get_maximize_flags()/set_unmaximize_flags(flags).
+        const maxFlags = window.get_maximize_flags?.() ?? window.get_maximized();
+        if (maxFlags) {
+            if (window.set_unmaximize_flags)
+                window.set_unmaximize_flags(maxFlags);
+            else
+                window.unmaximize(maxFlags);
+        }
 
         const [cx, cy] = global.get_pointer();
         const { monitor, index } = this._getMonitorForCursor(cx, cy);
