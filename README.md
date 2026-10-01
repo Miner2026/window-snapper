@@ -82,6 +82,7 @@ Release Shift at any time to return to normal mode.
   - Ubuntu 23.10 → GNOME 45
   - Ubuntu 24.04 → GNOME 46
   - Ubuntu 25.04 → GNOME 48
+  - Ubuntu 26.04 → GNOME 50
 
 Check your version:
 ```bash
